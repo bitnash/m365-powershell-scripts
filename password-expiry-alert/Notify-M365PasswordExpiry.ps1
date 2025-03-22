@@ -162,7 +162,7 @@ try {
 
         if ($remaining -le 7 -and $remaining -ge 0) {
             Write-Log "Sending alert..." -Level Verbose
-            # Send-EmailNotification -User $details -DaysRemaining $remaining -AccessToken $token -SenderEmail $SenderEmail
+            Send-EmailNotification -User $details -DaysRemaining $remaining -AccessToken $token -SenderEmail $SenderEmail
         }
     }
 
