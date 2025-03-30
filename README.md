@@ -5,6 +5,7 @@ A collection of PowerShell scripts for managing and automating tasks in Microsof
 ## 📦 Available Scripts
 
 - [Password Expiry Alerts](./password-expiry-alert)
+- [Secret Expiry Alerts](./secret-expiry-alert)
 
 ---
 
