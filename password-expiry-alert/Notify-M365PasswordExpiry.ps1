@@ -112,7 +112,7 @@ function Get-UserDetails ($Id) {
         Get-MgUser -UserId $Id -Property DisplayName, UserPrincipalName, LastPasswordChangeDateTime |
             Select-Object DisplayName, UserPrincipalName, LastPasswordChangeDateTime
     } catch {
-        Write-Log "Failed user lookup for $Id: $_" -Level Error
+        Write-Log "Failed user lookup for ${Id}: $_" -Level Error
         return $null
     }
 }
@@ -162,7 +162,7 @@ try {
 
         if ($remaining -le 7 -and $remaining -ge 0) {
             Write-Log "Sending alert..." -Level Verbose
-            # Send-EmailNotification -User $details -DaysRemaining $remaining -AccessToken $token -SenderEmail $SenderEmail
+            Send-EmailNotification -User $details -DaysRemaining $remaining -AccessToken $token -SenderEmail $SenderEmail
         }
     }
 
