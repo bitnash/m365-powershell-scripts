@@ -25,10 +25,14 @@ This PowerShell script simplifies the process of activating eligible Microsoft E
   ```powershell
   Install-Module Microsoft.Graph -Scope CurrentUser
 
-## 🚀 Usage
+---
 
+## 🚀 Usage
 ```powershell
 .\PIMSelect.ps1
+```
+
+---
 
 ## 🔐 Required Microsoft Graph Scopes
 
@@ -40,8 +44,9 @@ $scopes = @(
     "User.Read"
 )
 
+---
 
-## 📷 Screenshot (Sample Output)
+## 📷 Termina Output
 
 ```powershell
 Connecting to Microsoft Graph with enhanced authentication...
@@ -75,3 +80,4 @@ Currently active roles:
   ✓ Global Reader (Expires: 2025-06-07 14:23:45 UTC)
 
 Script completed.
+```
