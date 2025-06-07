@@ -6,6 +6,7 @@ A collection of PowerShell scripts for managing and automating tasks in Microsof
 
 - [Password Expiry Alerts](./password-expiry-alert)
 - [Secret Expiry Alerts](./secret-expiry-alert)
+- [Entra ID PIM Role Activation](./entra-pim-select)
 
 ---
 
