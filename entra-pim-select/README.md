@@ -29,7 +29,7 @@ This PowerShell script simplifies the process of activating eligible Microsoft E
 
 ## 🚀 Usage
 ```powershell
-.\PIMSelect.ps1
+.\Activate-EntraIDPIMRole.ps1
 ```
 
 ---
