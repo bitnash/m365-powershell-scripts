@@ -1,4 +1,4 @@
-# 🔐 PIMSelect.ps1 - Automate Microsoft Entra ID (formerly Azure AD) PIM Role Activation
+# 🔐 Activate-EntraIDPIMRole.ps1 - Automate Microsoft Entra ID (formerly Azure AD) PIM Role Activation
 
 This PowerShell script simplifies the process of activating eligible Microsoft Entra ID (formerly Azure AD) roles via Privileged Identity Management (PIM), using Microsoft Graph with interactive MFA support.
 
