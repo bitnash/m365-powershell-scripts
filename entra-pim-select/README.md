@@ -46,7 +46,7 @@ $scopes = @(
 
 ---
 
-## 📷 Termina Output
+## 📷 Terminal Output
 
 ```powershell
 Connecting to Microsoft Graph with enhanced authentication...
