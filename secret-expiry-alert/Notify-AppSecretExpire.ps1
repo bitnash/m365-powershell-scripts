@@ -1,24 +1,11 @@
 <#
     .DESCRIPTION
         This PowerShell script audits all Azure AD App Registrations in your tenant and 
-        identifies client secrets that are expiring within a configurable number of days (default: 30).
-
-        Example for local execution:
-        ----------------------------------------------------
-        .\Notify-AppSecretExpire.ps1 `
-            -ClientId "<your-client-id>" `
-            -ClientSecret "<your-client-secret>" `
-            -TenantId "<your-tenant-id>" `
-            -WarningDays 30 `
-            -SenderEmail "noreply@yourdomain.com" `
-            -ToEmail "you@yourdomain.com" `
-            -OutputPath "C:\Reports\AppSecretsExpirationReport.html" `
-            -UseLocalParameters
-        ----------------------------------------------------
+        identifies client secrets and certificates that are expiring within a configurable number of days (default: 30).
 
     .NOTES
         AUTHOR: Marco Notarrigo
-        LAST EDIT: Mar 30, 2025
+        LAST EDIT: Jun 20, 2025
 #>
 
 param (
@@ -32,7 +19,6 @@ param (
     [switch]$UseLocalParameters
 )
 
-# ========= Helper: Smart Logger =========
 function Write-Log {
     param (
         [string]$Message,
@@ -51,7 +37,6 @@ function Write-Log {
     }
 }
 
-# ========= Load Automation Vars if not local =========
 if (-not $UseLocalParameters) {
     $ClientId              = Get-AutomationVariable -Name 'ClientID'
     $ClientSecret          = Get-AutomationVariable -Name 'ClientSecret'
@@ -71,19 +56,13 @@ if (-not $UseLocalParameters) {
     if ($missing.Count -gt 0) {
         $missingList = $missing -join ', '
         Write-Log "Missing required parameter(s) when running with -UseLocalParameters: $missingList" -Level Error
-
-        # Delay error exit slightly so other messages can be written
         Start-Sleep -Milliseconds 200
-
-        # Show usage as a warning or normal output
         Write-Log "Example usage:" -Level Warning
         Write-Log ".\Notify-AppSecretExpire.ps1 -ClientId <...> -ClientSecret <...> -TenantId <...> -SenderEmail <...> -ToEmail <...> -OutputPath <...> -UseLocalParameters" -Level Warning
-
         exit 1
     }
 }
 
-# ========= Token: Microsoft Graph =========
 function Get-GraphAccessToken {
     try {
         $body = @{
@@ -99,7 +78,6 @@ function Get-GraphAccessToken {
     }
 }
 
-# ========= Connect to Graph =========
 function Connect-ToGraph {
     try {
         $secureCred = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $ClientId, (ConvertTo-SecureString $ClientSecret -AsPlainText -Force)
@@ -111,74 +89,85 @@ function Connect-ToGraph {
     }
 }
 
-# ========= Extract Expiring Secrets =========
-function Get-ExpiringAppSecrets($WarningDays,$Today) {
-    try {
-        $results = @()
-        Write-Log "Retrieving App Registrations..." -Level Verbose
-        $apps = Get-MgApplication -All
+function Get-ExpiringAppSecrets($WarningDays, $Today) {
+    $results = @()
+    $apps = Get-MgApplication -All
 
-        foreach ($app in $apps) {
-            $appId = $app.AppId
-            $appName = $app.DisplayName
-            $secrets = $app.PasswordCredentials
-
-            # Extract notification email from Notes field (if set)
-            $notifyEmail = "(not defined)"
-            if ($app.Info) {
-                if ($app.Info.Notes -match "NotifyEmail\s*=\s*([^\s;]+)") {
-                    $notifyEmail = $matches[1]
-                } elseif ($app.Notes -match "NotifyEmail\s*=\s*([^\s;]+)") {
-                    $notifyEmail = $matches[1]
-                }
+    foreach ($app in $apps) {
+        $notifyEmail = "(not defined)"
+        if ($app.Info) {
+            if ($app.Info.Notes -match "NotifyEmail\s*=\s*([^\s;]+)") {
+                $notifyEmail = $matches[1]
+            } elseif ($app.Notes -match "NotifyEmail\s*=\s*([^\s;]+)") {
+                $notifyEmail = $matches[1]
             }
+        }
 
-            foreach ($secret in $secrets) {
-                $daysRemaining = ($secret.EndDateTime - $Today).Days
-
-                if ($daysRemaining -le $WarningDays -and $daysRemaining -gt 0) {
-                    $results += [PSCustomObject]@{
-                        AppName = $appName
-                        AppId = $appId
-                        SecretDisplayName = $secret.DisplayName
-                        ExpirationDate = $secret.EndDateTime
-                        DaysRemaining = $daysRemaining
-                        NotifyEmail = $notifyEmail
-                    }
+        foreach ($secret in $app.PasswordCredentials) {
+            $daysRemaining = ($secret.EndDateTime - $Today).Days
+            if ($daysRemaining -le $WarningDays -and $daysRemaining -gt 0) {
+                $results += [PSCustomObject]@{
+                    AppName = $app.DisplayName
+                    AppId = $app.AppId
+                    SecretDisplayName = $secret.DisplayName
+                    ExpirationDate = $secret.EndDateTime
+                    DaysRemaining = $daysRemaining
+                    NotifyEmail = $notifyEmail
+                    Type = "Secret"
                 }
             }
         }
-        return $results
-    } catch {
-        Write-Log "Error extracting secrets: $_" -Level Error
-        return @()
     }
+    return $results
 }
 
-# ========= Send Email via Microsoft Graph =========
-function Send-GraphEmailReport($ToEmail,$AccessToken,$SenderEmail,$HtmlReport,$Subject) {
-    try {
-        $body = @{
-            message = @{
-                subject = $Subject
-                body    = @{
-                    contentType = "HTML"
-                    content     = $HtmlReport
-                }
-                toRecipients = @(@{ emailAddress = @{ address = $ToEmail } })
+function Get-ExpiringAppCertificates($WarningDays, $Today) {
+    $results = @()
+    $apps = Get-MgApplication -All
+
+    foreach ($app in $apps) {
+        $notifyEmail = "(not defined)"
+        if ($app.Info) {
+            if ($app.Info.Notes -match "NotifyEmail\s*=\s*([^\s;]+)") {
+                $notifyEmail = $matches[1]
+            } elseif ($app.Notes -match "NotifyEmail\s*=\s*([^\s;]+)") {
+                $notifyEmail = $matches[1]
             }
-        } | ConvertTo-Json -Depth 10
+        }
 
-        Invoke-RestMethod -Uri "https://graph.microsoft.com/v1.0/users/$SenderEmail/sendMail" `
-            -Method POST -Headers @{ Authorization = "Bearer $AccessToken"; "Content-Type" = "application/json" } -Body $body
-
-        Write-Log "Email report successfully sent to $ToEmail" -Level Output
-    } catch {
-        Write-Log "Failed to send email report: $_" -Level Error
+        foreach ($cert in $app.KeyCredentials) {
+            $daysRemaining = ($cert.EndDateTime - $Today).Days
+            if ($daysRemaining -le $WarningDays -and $daysRemaining -gt 0) {
+                $results += [PSCustomObject]@{
+                    AppName = $app.DisplayName
+                    AppId = $app.AppId
+                    SecretDisplayName = $cert.DisplayName
+                    ExpirationDate = $cert.EndDateTime
+                    DaysRemaining = $daysRemaining
+                    NotifyEmail = $notifyEmail
+                    Type = "Certificate"
+                }
+            }
+        }
     }
+    return $results
 }
 
-# ========= Main =========
+function Send-GraphEmailReport($ToEmail, $AccessToken, $SenderEmail, $HtmlReport, $Subject) {
+    $body = @{
+        message = @{
+            subject = $Subject
+            body    = @{ contentType = "HTML"; content = $HtmlReport }
+            toRecipients = @(@{ emailAddress = @{ address = $ToEmail } })
+        }
+    } | ConvertTo-Json -Depth 10
+
+    Invoke-RestMethod -Uri "https://graph.microsoft.com/v1.0/users/$SenderEmail/sendMail" `
+        -Method POST -Headers @{ Authorization = "Bearer $AccessToken"; "Content-Type" = "application/json" } -Body $body
+
+    Write-Log "Email report successfully sent to $ToEmail" -Level Output
+}
+
 try {
     Write-Log "Script starting..." -Level Output
 
@@ -187,13 +176,15 @@ try {
 
     $Today = Get-Date
     $ExpiringSecrets = Get-ExpiringAppSecrets $WarningDays $Today
+    $ExpiringCerts = Get-ExpiringAppCertificates $WarningDays $Today
+    $AllExpiring = $ExpiringSecrets + $ExpiringCerts
 
 $html = @"
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset='UTF-8'>
-    <title>App Secrets Expiration Report</title>
+    <title>App Credentials Expiration Report</title>
     <style>
         body { font-family: 'Segoe UI'; margin: 0; padding: 0; background: #f4f4f4; }
         .container { margin: 20px auto; padding: 20px; background: #fff; width: 95%; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
@@ -203,38 +194,18 @@ $html = @"
         th { background-color: #f2f2f2; }
         tr:hover { background-color: #f9f9f9; }
     </style>
-    <script>
-        document.addEventListener("DOMContentLoaded", function () {
-            const getCellValue = (tr, idx) => tr.children[idx].innerText || tr.children[idx].textContent;
-
-            const comparer = (idx, asc) => (a, b) =>
-                ((v1, v2) =>
-                    v1 !== "" && v2 !== "" && !isNaN(v1) && !isNaN(v2)
-                        ? v1 - v2
-                        : v1.toString().localeCompare(v2)
-                )(getCellValue(asc ? a : b, idx), getCellValue(asc ? b : a, idx));
-
-            document.querySelectorAll("th").forEach((th) =>
-                th.addEventListener("click", () => {
-                    const table = th.closest("table");
-                    Array.from(table.querySelectorAll("tbody > tr"))
-                        .sort(comparer(Array.from(th.parentNode.children).indexOf(th), (th.asc = !th.asc)))
-                        .forEach((tr) => table.querySelector("tbody").appendChild(tr));
-                })
-            );
-        });
-    </script>
 </head>
 <body>
 <div class='container'>
-    <h1>App Secrets Expiration Report</h1>
+    <h1>App Credentials Expiration Report</h1>
     <p>Generated: $(Get-Date -Format 'yyyy-MM-dd HH:mm')</p>
     <table>
         <thead>
             <tr>
                 <th>App Name</th>
                 <th>App ID</th>
-                <th>Secret Name</th>
+                <th>Credential Name</th>
+                <th>Type</th>
                 <th>Expires In</th>
                 <th>Expiration Date</th>
                 <th>Notify Email</th>
@@ -243,21 +214,21 @@ $html = @"
         <tbody>
 "@
 
-    foreach ($entry in $ExpiringSecrets) {
-        $appLink = "https://portal.azure.com/?feature.msaljs=true#view/Microsoft_AAD_RegisteredApps/ApplicationMenuBlade/~/Credentials/appId/$($entry.AppId)/isMSAApp~/false"
-        $secretNameLink = "<a href='$appLink' target='_blank'>$($entry.SecretDisplayName)</a>"
+foreach ($entry in $AllExpiring) {
+    $appLink = "https://portal.azure.com/?feature.msaljs=true#view/Microsoft_AAD_RegisteredApps/ApplicationMenuBlade/~/Credentials/appId/$($entry.AppId)/isMSAApp~/false"
+    $credentialName = "<a href='$appLink' target='_blank'>$($entry.SecretDisplayName)</a>"
+    $html += "<tr>
+        <td>$($entry.AppName)</td>
+        <td>$($entry.AppId)</td>
+        <td>$credentialName</td>
+        <td>$($entry.Type)</td>
+        <td>$($entry.DaysRemaining) days</td>
+        <td>$($entry.ExpirationDate.ToString('yyyy-MM-dd'))</td>
+        <td>$($entry.NotifyEmail)</td>
+    </tr>"
+}
 
-        $html += "<tr>
-            <td>$($entry.AppName)</td>
-            <td>$($entry.AppId)</td>
-            <td>$secretNameLink</td>
-            <td>$($entry.DaysRemaining) days</td>
-            <td>$($entry.ExpirationDate.ToString('yyyy-MM-dd'))</td>
-            <td>$($entry.NotifyEmail)</td>
-        </tr>"
-    }
-
-    $html += "</tbody></table></div></body></html>"
+$html += "</tbody></table></div></body></html>"
 
     if ($OutputPath) {
         $html | Out-File -FilePath $OutputPath -Encoding UTF8
@@ -266,14 +237,28 @@ $html = @"
         Write-Log "OutputPath not specified. Report was not saved locally." -Level Warning
     }
 
-    $subject = "Azure App Secrets Expiring in the Next $WarningDays Days"
-    Send-GraphEmailReport $ToEmail $token $SenderEmail $html $subject
+    $subject = "Azure App Credentials Expiring in the Next $WarningDays Days"
+
+    if (-not $UseLocalParameters) {
+        Send-GraphEmailReport $ToEmail $token $SenderEmail $html $subject
+
+        $AllExpiring | Where-Object { $_.NotifyEmail -ne "(not defined)" } | Group-Object NotifyEmail | ForEach-Object {
+            $recipient = $_.Name
+            $teamHtml = "<html><body><h1>Credentials Expiring for Your Application</h1><p><strong>Note:</strong> Contact your administrator to renew your credentials.</p><table border='1'><tr><th>App Name</th><th>App Id</th><th>Credential</th><th>Type</th><th>Days Remaining</th><th>Expiration Date</th></tr>"
+            foreach ($item in $_.Group) {
+                 $teamHtml += "<tr><td>$($item.AppName)</td><td>$($item.AppId)</td><td>$($item.SecretDisplayName)</td><td>$($item.Type)</td><td>$($item.DaysRemaining)</td><td>$($item.ExpirationDate.ToString('yyyy-MM-dd'))</td></tr>"
+            }
+            $teamHtml += "</table></body></html>"
+            Send-GraphEmailReport $recipient $token $SenderEmail $teamHtml "[Warning]: Credential Expiration Alert"
+        }
+    } else {
+        Write-Log "Local run detected. Email report not sent." -Level Information
+    }
 
     Write-Log "Script complete." -Level Output
 } catch {
     $err = $_
     $message = if ($err.Exception) { $err.Exception.Message } else { $err.ToString() }
     $stack   = if ($err.ScriptStackTrace) { $err.ScriptStackTrace } else { "<no stack trace>" }
-
     Write-Log "Fatal error: $message`n$stack" -Level Error
 }
