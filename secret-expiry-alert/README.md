@@ -27,3 +27,15 @@ You can run this script locally using parameters, or inside **Azure Automation**
 - Microsoft Graph App Registration with "Mail.Send","Application.Read.All", "Directory.Read.All"  permissions
 - Azure Automation or PowerShell 5.1+
 
+## 🔔 New Feature: Notify Application Owners via NotifyEmail
+
+You can now notify application-specific owners or teams by adding a NotifyEmail tag to your app registrations.
+
+How to use:
+Go to Azure Portal → Entra ID → App Registrations → [Your App] → Branding & Properties
+
+Under Branding & Properites → Notes, add:
+
+```
+NotifyEmail=team@yourdomain.com
+```
