@@ -329,5 +329,3 @@ Write-Host ""
 Write-Host "===================================================================" -ForegroundColor Cyan
 Write-Host "  Audit log: $logDirectory\audit.log" -ForegroundColor Cyan
 Write-Host "===================================================================" -ForegroundColor Cyan
-
-
