@@ -1,6 +1,6 @@
 # ==============================================================================
 # PIM Role Activation Script - Secured Version
-# Version: 1.0
+# Version: 2.0
 # Security: Hardened with least privilege, input validation, and audit logging
 # ==============================================================================
 
@@ -329,3 +329,4 @@ Write-Host ""
 Write-Host "===================================================================" -ForegroundColor Cyan
 Write-Host "  Audit log: $logDirectory\audit.log" -ForegroundColor Cyan
 Write-Host "===================================================================" -ForegroundColor Cyan
+
