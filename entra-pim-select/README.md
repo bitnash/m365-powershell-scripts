@@ -1,6 +1,6 @@
 # 🔐 Activate-EntraIDPIMRole.ps1 - Secure Microsoft Entra ID PIM Role Activation
 
-**Version 1.0 - Hardened Security Edition**
+**Version 2.0 - Hardened Security Edition**
 
 This PowerShell script simplifies and secures the process of activating eligible Microsoft Entra ID (formerly Azure AD) roles via Privileged Identity Management (PIM), using Microsoft Graph with interactive MFA support.
 
@@ -276,3 +276,4 @@ This script activates privileged roles in your Microsoft Entra ID tenant. Always
 ---
 
 **Made with 🛡️ by focusing on security and usability**
+
