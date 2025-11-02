@@ -11,7 +11,7 @@ Disconnect-MgGraph -ErrorAction SilentlyContinue
 $scopes = @(
 "RoleAssignmentSchedule.ReadWrite.Directory",  # For self-activation only
 "Directory.Read.All",                          # For reading role information
-"User.Read"                                     # For reading user profile
+"User.Read"                                    # For reading user profile
 )
 
 # Configuration
@@ -329,4 +329,5 @@ Write-Host ""
 Write-Host "===================================================================" -ForegroundColor Cyan
 Write-Host "  Audit log: $logDirectory\audit.log" -ForegroundColor Cyan
 Write-Host "===================================================================" -ForegroundColor Cyan
+
 
